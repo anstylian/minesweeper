@@ -88,7 +88,7 @@ impl Board {
 
         Board {
             board,
-            hidden_cells: (size * size) as u32,
+            hidden_cells: (size * size) as u32 - bombs,
         }
     }
 
@@ -176,14 +176,16 @@ impl Board {
 
 impl fmt::Display for Board {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for i in 0..8 {
-            for j in 0..8 {
+        let width = self.board.len() as usize;
+        let hight = self.board[0].len() as usize;
+        for i in 0..hight {
+            for j in 0..width {
                 write!(f, "{} ", self.board[i][j])?;
             }
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
 
-        write!(f, "\n")
+        writeln!(f)
     }
 }
 
@@ -207,19 +209,12 @@ fn add_adjacent_bombs(board: &mut Vec<Vec<Cell>>) {
     let height: usize = board.len();
 
     for i in 0..height {
-        for j in 0..width as usize {
+        for j in 0..width {
             match board[i][j].cell_content {
                 Some(CellContents::Bomb) => {}
                 _ => {
-                    let mut bombs = 0;
-                    for x in max(i as isize - 1, 0) as usize..min(i + 2, width) {
-                        for y in max(j as isize - 1, 0) as usize..min(j + 2, height) {
-                            bombs += match board[x][y].cell_content {
-                                Some(CellContents::Bomb) => 1,
-                                _ => 0,
-                            };
-                        }
-                    }
+                    let bombs = add_cell_adjacent_bombs(board, i, j);
+
                     if bombs != 0 {
                         board[i][j].set_cell_content(Some(CellContents::Neighbors(bombs)));
                     }
@@ -229,10 +224,35 @@ fn add_adjacent_bombs(board: &mut Vec<Vec<Cell>>) {
     }
 }
 
+fn add_cell_adjacent_bombs(board: &mut Vec<Vec<Cell>>, i: usize, j: usize) -> u8 {
+    let width: usize = board[0].len();
+    let height: usize = board.len();
+    let mut bombs = 0;
+
+    for line in board
+        .iter()
+        .take(min(i + 2, width))
+        .skip(max(i as isize - 1, 0) as usize)
+    {
+        for cell in line
+            .iter()
+            .take(min(j + 2, height))
+            .skip(max(j as isize - 1, 0) as usize)
+        {
+            bombs += match cell.cell_content {
+                Some(CellContents::Bomb) => 1,
+                _ => 0,
+            };
+        }
+    }
+
+    bombs
+}
+
 fn read_input() -> (isize, isize) {
     io::stdout().flush().unwrap();
     let mut command = String::new();
-    if let Ok(_) = io::stdin().read_line(&mut command) {
+    if io::stdin().read_line(&mut command).is_ok() {
         let values: Vec<&str> = command.trim().split(' ').collect();
         if let (Ok(x), Ok(y)) = (values[0].parse::<isize>(), values[1].parse::<isize>()) {
             (x, y)
